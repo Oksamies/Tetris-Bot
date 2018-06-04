@@ -44,7 +44,7 @@ class GymWorkerDatum(object):
 class GymWorker(object):
 
     def __init__(self, identifier):
-        self.env = gym.make("SnakeHeadless-v0")
+        self.env = gym.make("SnakeBigHeadless-v0")
         self.env.seed(random.randint(0, 9999999))
         self.identifier = identifier
         self.total_steps = 0
@@ -140,7 +140,7 @@ class Worker(object):
 
 
 def main():
-    worker_count = 2
+    worker_count = 1
     workers = []
     for i in range(worker_count):
         workers.append(Worker(target=gym_process_main, identifier=i))
@@ -149,7 +149,7 @@ def main():
     if not os.path.isdir(os.path.dirname(checkpoint_path)):
         os.makedirs(os.path.dirname(checkpoint_path))
 
-    env = gym.make("SnakeHeadless-v0")
+    env = gym.make("SnakeBigHeadless-v0")
     agent = SnakeNetwork(
         feature_count=env.observation_space.shape[2],
         level_width=env.observation_space.shape[0],
@@ -170,8 +170,12 @@ def main():
     for worker in workers:
         worker.start()
 
-    while total_episodes < 30000:
-        epsilon = 1.0 / (0.01 * (extra_episodes + (total_steps / 1000)))
+    while total_episodes < 500000:
+        if total_steps == 0 and extra_episodes == 0:
+            epsilon = 0.00001
+        else:
+            epsilon = 1.0 / (0.01 * (extra_episodes + (total_steps / 1000)))
+        
         agent.epsilon = min(epsilon, 0.1)
 
         for worker in workers:
@@ -185,15 +189,17 @@ def main():
         for worker in workers:
             data = worker.get()
 
+            total_steps += data.total_steps
+            total_episodes += data.total_episodes
+
             agent.learn(
                 old_state=data.old_observation,
                 new_state=data.new_observation,
                 action=data.last_action,
                 reward=data.last_reward,
                 Q_base=data.last_Q_base,
+                current_episode=total_episodes
             )
-            total_steps += data.total_steps
-            total_episodes += data.total_episodes
 
             if data.messages and not messages:
                 messages = data.messages
@@ -205,8 +211,8 @@ def main():
             print("Total steps: %s" % total_steps)
             print("Total episodes: %s" % total_episodes)
 
-            if total_episodes % 500 == 0:
-                agent.save()
+            if total_episodes % 25 == 0:
+                agent.save(total_episodes)
 
         last_total_episodes = total_episodes
 

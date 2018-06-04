@@ -15,6 +15,8 @@ from .constants import PLAY_AREA
 ENV_NAMES = {
     "small": "SnakeSmall-v0",
     "normal": "Snake-v0",
+    "big": "SnakeBig-v0",
+    "big-headless": "SnakeBigHeadless-v0",
     "normal-headless": "SnakeHeadless-v0",
 }
 
@@ -194,6 +196,20 @@ def register():
         kwargs={"width": 8, "height": 8},
         max_episode_steps=None,
         reward_threshold=25.0,
+    )
+    gym.envs.register(
+        id=ENV_NAMES["big"],
+        entry_point="snake.env:SnakeEnv",
+        kwargs={"width": 20, "height": 20},
+        max_episode_steps=None,
+        reward_threshold=400.0,
+    )
+    gym.envs.register(
+        id=ENV_NAMES["big-headless"],
+        entry_point="snake.env:SnakeEnv",
+        kwargs={"width": 20, "height": 20, "headless": True},
+        max_episode_steps=None,
+        reward_threshold=400.0,
     )
     gym.envs.register(
         id=ENV_NAMES["normal-headless"],

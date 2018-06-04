@@ -35,15 +35,20 @@ class SnakeNetwork(object):
         self.checkpoint_path = checkpoint_path
         self.epsilon = epsilon
         self.learning_rate = learning_rate
+        self.last_episode = 0
         self.build()
         self.config = tf.ConfigProto()
         self.config.gpu_options.allow_growth = True
-        self.config.gpu_options.per_process_gpu_memory_fraction = 0.2
+        self.config.gpu_options.per_process_gpu_memory_fraction = 0.4
         self.session = tf.Session(config=self.config)
         self.session.run(tf.global_variables_initializer())
-        tf.summary.FileWriter("logs/", self.session.graph)
+        self.session.run(tf.global_variables_initializer())
+        self.merged = tf.summary.merge_all()
+        self.writer = tf.summary.FileWriter("logs/")
+        self.writer.add_graph(self.session.graph)
 
     def build(self):
+        # Setup placeholders
         self.network_input = tf.placeholder(
             tf.float32,
             shape=[None, self.level_width, self.level_height, self.feature_count],
@@ -92,10 +97,16 @@ class SnakeNetwork(object):
 
         self.train = tf.train.AdamOptimizer(self.learning_rate).minimize(self.loss)
 
-        correct_prediction = tf.equal(self.action, tf.argmax(self.target, 1))
-        self.accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
+        with tf.name_scope('accuracy'):
+            with tf.name_scope('correct_prediction'):
+                correct_prediction = tf.equal(self.action, tf.argmax(self.target, 1))                
+            with tf.name_scope('accuracy'):
+                self.accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))                
+        tf.summary.scalar('accuracy', self.accuracy)
 
-    def learn(self, old_state, action, reward, new_state, Q_base):
+
+
+    def learn(self, old_state, action, reward, new_state, Q_base, current_episode):
         gamma = 0.99
         old_state = old_state[np.newaxis, :]
         new_state = new_state[np.newaxis, :]
@@ -109,6 +120,13 @@ class SnakeNetwork(object):
         Q_target = Q_base
         Q_target[0, action] = reward + gamma * np.max(Q)
 
+        if self.last_episode != current_episode:
+            if current_episode % 5000 == 0:
+                s = self.session.run(self.merged, feed_dict={self.network_input: old_state, self.target: Q_target})
+                self.writer.add_summary(s, current_episode)
+                print("LeWorm" * 20)
+                print("Saved episode %s" % current_episode)
+        
         # Train
         self.session.run(
             self.train,
@@ -117,6 +135,7 @@ class SnakeNetwork(object):
                 self.target: Q_target
             }
         )
+        self.last_episode = current_episode
 
     def choose_action(self, observation):
         observation = observation[np.newaxis, :]
@@ -132,7 +151,7 @@ class SnakeNetwork(object):
 
         return action, network_output
 
-    def save(self):
+    def save(self, total_episodes):
         saver = tf.train.Saver()
         save_path = saver.save(self.session, self.checkpoint_path)
         print("Saved parameters to %s" % save_path)

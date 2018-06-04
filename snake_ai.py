@@ -23,7 +23,7 @@ class Unbuffer(object):
 
 
 def main():
-    env = gym.make("SnakeHeadless-v0")
+    env = gym.make("Snake-v0")
 
     checkpoint_path = os.path.abspath(os.path.join("checkpoints", "snake-deep-noloop.ckpt"))
     if not os.path.isdir(os.path.dirname(checkpoint_path)):
