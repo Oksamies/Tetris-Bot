@@ -36,6 +36,7 @@ class SnakeNetwork(object):
         self.epsilon = epsilon
         self.learning_rate = learning_rate
         self.last_episode = 0
+        self.worker_id = 0
         self.build()
         self.config = tf.ConfigProto()
         self.config.gpu_options.allow_growth = True
@@ -44,8 +45,9 @@ class SnakeNetwork(object):
         self.session.run(tf.global_variables_initializer())
         self.session.run(tf.global_variables_initializer())
         self.merged = tf.summary.merge_all()
-        self.writer = tf.summary.FileWriter("logs/")
+        self.writer = tf.summary.FileWriter(("logs/worker_%s" % self.worker_id))
         self.writer.add_graph(self.session.graph)
+        print(self.worker_id)
 
     def build(self):
         # Setup placeholders
@@ -97,16 +99,15 @@ class SnakeNetwork(object):
 
         self.train = tf.train.AdamOptimizer(self.learning_rate).minimize(self.loss)
 
-        with tf.name_scope('accuracy'):
+        with tf.name_scope('accuracy_%s' % self.worker_id):
             with tf.name_scope('correct_prediction'):
                 correct_prediction = tf.equal(self.action, tf.argmax(self.target, 1))                
-            with tf.name_scope('accuracy'):
+            with tf.name_scope('accuracy_%s' % self.worker_id):
                 self.accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))                
-        tf.summary.scalar('accuracy', self.accuracy)
+        tf.summary.scalar(('accuracy_%s' % self.worker_id), self.accuracy, family="workers")
 
 
-
-    def learn(self, old_state, action, reward, new_state, Q_base, current_episode):
+    def learn(self, old_state, action, reward, new_state, Q_base, current_episode, save_episode=False):
         gamma = 0.99
         old_state = old_state[np.newaxis, :]
         new_state = new_state[np.newaxis, :]
@@ -120,12 +121,13 @@ class SnakeNetwork(object):
         Q_target = Q_base
         Q_target[0, action] = reward + gamma * np.max(Q)
 
-        if self.last_episode != current_episode:
-            if current_episode % 5000 == 0:
-                s = self.session.run(self.merged, feed_dict={self.network_input: old_state, self.target: Q_target})
-                self.writer.add_summary(s, current_episode)
-                print("LeWorm" * 20)
-                print("Saved episode %s" % current_episode)
+        if save_episode:
+            if self.last_episode != current_episode:
+                if current_episode % 1 == 0:
+                    s = self.session.run(self.merged, feed_dict={self.network_input: old_state, self.target: Q_target})
+                    self.writer.add_summary(s, current_episode)
+                    print("LeWorm" * 20)
+                    print("Saved episode %s" % current_episode)
         
         # Train
         self.session.run(
@@ -137,7 +139,8 @@ class SnakeNetwork(object):
         )
         self.last_episode = current_episode
 
-    def choose_action(self, observation):
+    def choose_action(self, observation, worker_id):
+        self.worker_id = worker_id
         observation = observation[np.newaxis, :]
 
         network_output, action = self.session.run(

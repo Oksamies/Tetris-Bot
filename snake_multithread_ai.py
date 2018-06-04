@@ -140,7 +140,7 @@ class Worker(object):
 
 
 def main():
-    worker_count = 1
+    worker_count = 5
     workers = []
     for i in range(worker_count):
         workers.append(Worker(target=gym_process_main, identifier=i))
@@ -163,6 +163,7 @@ def main():
     total_episodes = 0
     last_total_episodes = 0
     extra_episodes = 0
+    saved_episodes = []
 
     if loaded:
         extra_episodes = 32000
@@ -170,7 +171,7 @@ def main():
     for worker in workers:
         worker.start()
 
-    while total_episodes < 500000:
+    while total_episodes < 500:
         if total_steps == 0 and extra_episodes == 0:
             epsilon = 0.00001
         else:
@@ -181,7 +182,7 @@ def main():
         for worker in workers:
             worker.put(True)  # Signal that we should keep running
             observation = worker.get()
-            worker.put(agent.choose_action(observation))
+            worker.put(agent.choose_action(observation, worker.identifier))
 
         total_steps = 0
         total_episodes = 0
@@ -192,13 +193,21 @@ def main():
             total_steps += data.total_steps
             total_episodes += data.total_episodes
 
+            save_episode = False
+            if total_episodes != last_total_episodes:
+                if total_episodes % 1 == 0:
+                    if total_episodes not in saved_episodes:
+                        save_episode = True
+                        saved_episodes.append(total_episodes)
+            
             agent.learn(
                 old_state=data.old_observation,
                 new_state=data.new_observation,
                 action=data.last_action,
                 reward=data.last_reward,
                 Q_base=data.last_Q_base,
-                current_episode=total_episodes
+                current_episode=total_episodes,
+                save_episode=save_episode,
             )
 
             if data.messages and not messages:
@@ -211,7 +220,7 @@ def main():
             print("Total steps: %s" % total_steps)
             print("Total episodes: %s" % total_episodes)
 
-            if total_episodes % 25 == 0:
+            if total_episodes % 100 == 0:
                 agent.save(total_episodes)
 
         last_total_episodes = total_episodes

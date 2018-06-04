@@ -54,7 +54,7 @@ class SnakeHead(GameObject):
         self.length = 3
 
     def load_content(self, content_loader):
-        self.tile_texture = content_loader.load_texture("piece-blue.png")
+        self.tile_texture = content_loader.load_texture("piece-kasko.png")
 
     def get_render_layer(self):
         return RenderLayers.SNAKE
@@ -125,7 +125,7 @@ class SnakePiece(GameObject):
         self.level.occupy_space(self.position)
 
     def load_content(self, content_loader):
-        self.tile_texture = content_loader.load_texture("piece-blue.png")
+        self.tile_texture = content_loader.load_texture("piece-skin.png")
 
     def get_render_layer(self):
         return RenderLayers.SNAKE
@@ -155,7 +155,7 @@ class Cherry(GameObject):
         self.position = position
 
     def load_content(self, content_loader):
-        self.tile_texture = content_loader.load_texture("piece-purple.png")
+        self.tile_texture = content_loader.load_texture("piece-ainsley.png")
 
     def get_render_layer(self):
         return RenderLayers.SNAKE
