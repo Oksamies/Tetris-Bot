@@ -74,7 +74,7 @@ class SnakeNetwork(object):
         h_pool2 = _max_pool_2x2(h_conv2)
 
         # Densely connected layer
-        neurons = 128
+        neurons = 256
         flat_neurons = int(self.level_width / 2 / 2) * int(self.level_height / 2 / 2) * 32
         W_fc1 = _weight_variable([flat_neurons, neurons])
         b_fc1 = _bias_variable([neurons])
@@ -106,9 +106,12 @@ class SnakeNetwork(object):
                 self.accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))                
         tf.summary.scalar(('accuracy_%s' % self.worker_id), self.accuracy, family="workers")
 
-
     def learn(self, old_state, action, reward, new_state, Q_base, current_episode, save_episode=False):
-        gamma = 0.99
+        time_to_die = np.random.rand(1)
+        if time_to_die > 0.90:
+            gamma = 0.50
+        else:
+            gamma = 0.97
         old_state = old_state[np.newaxis, :]
         new_state = new_state[np.newaxis, :]
 
@@ -123,11 +126,8 @@ class SnakeNetwork(object):
 
         if save_episode:
             if self.last_episode != current_episode:
-                if current_episode % 1 == 0:
                     s = self.session.run(self.merged, feed_dict={self.network_input: old_state, self.target: Q_target})
                     self.writer.add_summary(s, current_episode)
-                    print("LeWorm" * 20)
-                    print("Saved episode %s" % current_episode)
         
         # Train
         self.session.run(
@@ -154,7 +154,7 @@ class SnakeNetwork(object):
 
         return action, network_output
 
-    def save(self, total_episodes):
+    def save(self):
         saver = tf.train.Saver()
         save_path = saver.save(self.session, self.checkpoint_path)
         print("Saved parameters to %s" % save_path)

@@ -1,2 +1,2 @@
-model_checkpoint_path: "D:\\projectx\\snake\\Tetris-Bot\\checkpoints\\snake-deep-noloop.ckpt"
-all_model_checkpoint_paths: "D:\\projectx\\snake\\Tetris-Bot\\checkpoints\\snake-deep-noloop.ckpt"
+model_checkpoint_path: "C:\\fun\\Tetris-Bot\\checkpoints\\snake-deep-noloop-4-workers.ckpt"
+all_model_checkpoint_paths: "C:\\fun\\Tetris-Bot\\checkpoints\\snake-deep-noloop-4-workers.ckpt"

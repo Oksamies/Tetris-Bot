@@ -29,7 +29,7 @@ class GymWorkerDatum(object):
 
     def __init__(self, identifier, total_steps, total_episodes,
                  old_observation, new_observation, last_reward,
-                 last_action, last_Q_base, messages):
+                 last_action, last_Q_base, messages, top_score):
         self.identifier = identifier
         self.total_steps = total_steps
         self.total_episodes = total_episodes
@@ -39,12 +39,13 @@ class GymWorkerDatum(object):
         self.last_action = last_action
         self.last_Q_base = last_Q_base
         self.messages = messages
+        self.top_score = top_score
 
 
 class GymWorker(object):
 
     def __init__(self, identifier):
-        self.env = gym.make("SnakeBigHeadless-v0")
+        self.env = gym.make("SnakeHeadless-v0")
         self.env.seed(random.randint(0, 9999999))
         self.identifier = identifier
         self.total_steps = 0
@@ -64,7 +65,8 @@ class GymWorker(object):
             total_steps=self.total_steps,
             total_episodes=self.episode,
             identifier=self.identifier,
-            messages=self.out_buffer
+            messages=self.out_buffer,
+            top_score=self.episode_reward,
         )
         self.out_buffer = []
         return data
@@ -140,16 +142,16 @@ class Worker(object):
 
 
 def main():
-    worker_count = 5
+    worker_count = 4
     workers = []
     for i in range(worker_count):
         workers.append(Worker(target=gym_process_main, identifier=i))
 
-    checkpoint_path = os.path.abspath(os.path.join("checkpoints", "snake-deep-noloop.ckpt"))
+    checkpoint_path = os.path.abspath(os.path.join("checkpoints", "snake-deep-noloop-4-workers.ckpt"))
     if not os.path.isdir(os.path.dirname(checkpoint_path)):
         os.makedirs(os.path.dirname(checkpoint_path))
 
-    env = gym.make("SnakeBigHeadless-v0")
+    env = gym.make("SnakeHeadless-v0")
     agent = SnakeNetwork(
         feature_count=env.observation_space.shape[2],
         level_width=env.observation_space.shape[0],
@@ -162,22 +164,19 @@ def main():
     total_steps = 0
     total_episodes = 0
     last_total_episodes = 0
-    extra_episodes = 0
+    extra_steps = 0
     saved_episodes = []
+    last_top_score = 0
 
     if loaded:
-        extra_episodes = 32000
+        extra_steps = 32000
 
     for worker in workers:
         worker.start()
 
-    while total_episodes < 500:
-        if total_steps == 0 and extra_episodes == 0:
-            epsilon = 0.00001
-        else:
-            epsilon = 1.0 / (0.01 * (extra_episodes + (total_steps / 1000)))
-        
-        agent.epsilon = min(epsilon, 0.1)
+    while total_episodes < 20000:
+        epsilon = 1.0 / (0.001 * (extra_steps + total_steps + 1))
+        agent.epsilon = max(epsilon, 0.001)
 
         for worker in workers:
             worker.put(True)  # Signal that we should keep running
@@ -195,11 +194,11 @@ def main():
 
             save_episode = False
             if total_episodes != last_total_episodes:
-                if total_episodes % 1 == 0:
+                if total_episodes % 250 == 0:
                     if total_episodes not in saved_episodes:
                         save_episode = True
                         saved_episodes.append(total_episodes)
-            
+
             agent.learn(
                 old_state=data.old_observation,
                 new_state=data.new_observation,
@@ -207,21 +206,25 @@ def main():
                 reward=data.last_reward,
                 Q_base=data.last_Q_base,
                 current_episode=total_episodes,
-                save_episode=save_episode,
+                save_episode=False,
             )
 
             if data.messages and not messages:
                 messages = data.messages
 
+        if last_top_score < data.top_score:
+            print(data.top_score)
+            last_top_score = data.top_score
         if total_episodes != last_total_episodes:
-            for message in messages:
-                print(message)
-            print("-" * 20)
-            print("Total steps: %s" % total_steps)
-            print("Total episodes: %s" % total_episodes)
+            if total_episodes % 250 == 0:
+                for message in messages:
+                    print(message)
+                print("-" * 20)
+                print("Total steps: %s" % total_steps)
+                print("Total episodes: %s" % total_episodes)
 
-            if total_episodes % 100 == 0:
-                agent.save(total_episodes)
+                if total_episodes % 100 == 0:
+                    agent.save()
 
         last_total_episodes = total_episodes
 

@@ -25,7 +25,7 @@ class Unbuffer(object):
 def main():
     env = gym.make("Snake-v0")
 
-    checkpoint_path = os.path.abspath(os.path.join("checkpoints", "snake-deep-noloop.ckpt"))
+    checkpoint_path = os.path.abspath(os.path.join("checkpoints", "snake-deep-noloop-4.ckpt"))
     if not os.path.isdir(os.path.dirname(checkpoint_path)):
         os.makedirs(os.path.dirname(checkpoint_path))
 
@@ -39,10 +39,10 @@ def main():
     loaded = agent.load()
     extra_episodes = 0
     if loaded:
-        extra_episodes += 32000
+        extra_episodes += 0
 
-    episode = 0
-    total_steps = 0
+    episode = 1
+    total_steps = 1
     while True:
         episode += 1
         episode_total_reward = 0
@@ -51,7 +51,7 @@ def main():
         agent.epsilon = epsilon
 
         for i in range(1000):
-            action, Q_base = agent.choose_action(observation)
+            action, Q_base = agent.choose_action(observation, 0)
             (new_observation, reward, done, info) = env.step(action)
 
             agent.learn(
@@ -59,7 +59,8 @@ def main():
                 action=action,
                 reward=reward,
                 new_state=new_observation,
-                Q_base=Q_base
+                Q_base=Q_base,
+                current_episode=episode
             )
             observation = new_observation
             episode_total_reward += reward
